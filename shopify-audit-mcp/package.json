@@ -1,0 +1,36 @@
+{
+  "name": "shopify-audit-mcp",
+  "version": "1.0.0",
+  "description": "MCP server that audits a Shopify store against GA4 analytics and drafts UI/UX improvement proposals for human review.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "shopify-audit-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "schedule": "tsx src/scheduler.ts",
+    "schedule:once": "tsx src/scheduler.ts --once",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "smoke": "npm run build && node scripts/smoke-test.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "dotenv": "^17.4.2",
+    "node-cron": "^4.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.23.11",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
