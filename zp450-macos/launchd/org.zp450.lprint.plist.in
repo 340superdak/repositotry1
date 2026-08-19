@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>@PLIST_LABEL@</string>
+
+	<!-- Runs as root so libusb can claim the printer's USB interface and so
+	     the CLI can reach the server on the system domain socket. -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>@PREFIX@/bin/lprint</string>
+		<string>server</string>
+		<string>-o</string>
+		<string>server-port=@LPRINT_PORT@</string>
+		<string>-o</string>
+		<string>log-file=@LOG_FILE@</string>
+		<string>-o</string>
+		<string>log-level=warn</string>
+	</array>
+
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+
+	<key>StandardErrorPath</key>
+	<string>@LOG_FILE@</string>
+</dict>
+</plist>

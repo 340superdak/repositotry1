@@ -1,0 +1,33 @@
+Add Zebra ZP 450 driver entries
+
+The ZP 450 is a rebadged Zebra GK420d: 203dpi, 4-inch, direct thermal.
+Base units ship with EPL2 firmware; dual-firmware units also speak ZPL II.
+Upstream LPrint has no ZP 450 entry, so autoadd falls back to the generic
+"COMMAND SET:EPL;" driver and the model is never named in the UI.
+
+These entries are strictly additive: they match on COMMAND SET + MODEL, so a
+ZP 450 reporting a different MODEL string simply scores 0 and falls back to the
+generic driver exactly as before.
+
+--- a/lprint-epl2.h	2026-08-19 21:15:45.478116492 +0000
++++ b/lprint-epl2.h	2026-08-19 21:15:45.550595999 +0000
+@@ -17,6 +17,8 @@
+   "", NULL },
+ { "epl2_4inch-203dpi-dt",        "Zebra EPL Page Mode 4-inch/203dpi/Direct-Thermal",
+   "COMMAND SET:EPL;", NULL },
++{ "epl2_4inch-203dpi-dt_zp450",   "Zebra ZP 450 (EPL)",
++  "COMMAND SET:EPL;MODEL:ZTC ZP 450;", NULL },
+ { "epl2_4inch-203dpi-tt",        "Zebra EPL Page Mode 4-inch/203dpi/Thermal-Transfer",
+   "", NULL },
+ { "epl2_4inch-300dpi-dt",        "Zebra EPL Page Mode 4-inch/300dpi/Direct-Thermal",
+--- a/lprint-zpl.h	2026-08-19 21:15:45.482116492 +0000
++++ b/lprint-zpl.h	2026-08-19 21:15:45.550732108 +0000
+@@ -27,6 +27,8 @@
+   "MFG:4BARCODE;CMD:CEZD;MDL:4B-2054A;", NULL },
+ { "zpl_4inch-203dpi-dt_gx420d",	"Zebra GX420d",
+   "MANUFACTURER:Zebra Technologies;COMMAND SET:ZPL;MODEL:ZTC GX420d;", NULL },
++{ "zpl_4inch-203dpi-dt_zp450",	"Zebra ZP 450 (ZPL)",
++  "COMMAND SET:ZPL;MODEL:ZTC ZP 450;", NULL },
+ { "zpl_4inch-203dpi-dt_gx430d",	"Zebra GX430d",
+   "MANUFACTURER:Zebra Technologies;COMMAND SET:ZPL;MODEL:ZTC GX430d;", NULL },
+ { "zpl_4inch-300dpi-dt_hp-ke103", "HP KE103",
