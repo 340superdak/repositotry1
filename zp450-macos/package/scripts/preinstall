@@ -1,0 +1,4 @@
+#!/bin/bash
+# Stop any running instance so its files can be replaced cleanly.
+launchctl bootout "system/org.zp450.lprint" 2>/dev/null || true
+exit 0

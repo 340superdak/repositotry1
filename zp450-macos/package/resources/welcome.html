@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+ body { font: 13px -apple-system, "Helvetica Neue", sans-serif; margin: 12px; line-height: 1.5; }
+ h2 { font-size: 15px; margin: 0 0 8px; }
+ ul { padding-left: 20px; }
+ code { font: 12px ui-monospace, Menlo, monospace; }
+</style></head>
+<body>
+<h2>Zebra ZP 450 Printer</h2>
+<p>This installs a printer application for the Zebra ZP 450 thermal label
+printer. Your Mac will see the printer as a standard AirPrint-style device, so
+it prints from any app's print dialog.</p>
+<p><b>What gets installed</b></p>
+<ul>
+  <li>The printer software and every library it needs, in
+      <code>/usr/local/zp450</code></li>
+  <li>A background service that starts at boot</li>
+  <li>A print queue named <b>ZP450</b></li>
+</ul>
+<p>Nothing else on this Mac is modified. No developer tools or Homebrew are
+required.</p>
+<p><b>Connect the ZP 450 over USB and switch it on before continuing</b>, so the
+queue can be created automatically. If you forget, you can finish later by
+running <code>sudo zp450-setup</code> in Terminal.</p>
+</body></html>

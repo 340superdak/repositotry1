@@ -1,0 +1,35 @@
+#!/bin/bash
+#
+# Runs as root at the end of installation. Loads the daemon and creates the
+# queues. A missing printer must NOT fail the install: the software is
+# installed correctly either way, and `sudo zp450-setup` finishes the job once
+# the printer is plugged in.
+#
+
+PREFIX="/usr/local/zp450"
+LOG="/var/log/install.log"
+
+log() { echo "zp450: $*" | tee -a "$LOG"; }
+
+export PREFIX ASSUME_YES=1
+
+if [ ! -x "$PREFIX/bin/lprint" ]; then
+  log "lprint missing from $PREFIX/bin after install"
+  exit 1
+fi
+
+# Verify the bundled libraries actually load before promising anything.
+if ! "$PREFIX/bin/lprint" drivers >/dev/null 2>&1; then
+  log "installed lprint cannot run:"
+  "$PREFIX/bin/lprint" drivers 2>&1 | head -5 | tee -a "$LOG"
+  exit 1
+fi
+
+if "$PREFIX/share/zp450/scripts/setup-queue.sh" >>"$LOG" 2>&1; then
+  log "printer queues created"
+else
+  log "queue setup did not complete - most likely the printer was not connected."
+  log "Connect the ZP 450 over USB and run: sudo zp450-setup"
+fi
+
+exit 0

@@ -66,6 +66,14 @@ cd zp450-macos
 ./install.sh
 ```
 
+Building from source needs Homebrew and the Xcode command line tools. For a Mac
+that has neither, build a double-clickable installer package instead — see
+[`package/README.md`](package/README.md):
+
+```sh
+cd zp450-macos/package && ./build-pkg.sh
+```
+
 Then print a test label:
 
 ```sh

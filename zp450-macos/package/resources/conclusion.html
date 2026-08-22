@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+ body { font: 13px -apple-system, "Helvetica Neue", sans-serif; margin: 12px; line-height: 1.5; }
+ h2 { font-size: 15px; margin: 0 0 8px; }
+ code { font: 12px ui-monospace, Menlo, monospace; }
+ table { border-collapse: collapse; margin-top: 6px; }
+ td { padding: 2px 10px 2px 0; vertical-align: top; }
+</style></head>
+<body>
+<h2>Installed</h2>
+<p>Print a test label from System Settings › Printers &amp; Scanners, or from any
+app, choosing the <b>ZP450</b> printer.</p>
+<table>
+<tr><td><b>Printer settings</b></td><td><a href="http://localhost:8100/">http://localhost:8100/</a> — media size, darkness, speed</td></tr>
+<tr><td><b>Queue not created?</b></td><td>Connect the printer, then run <code>sudo zp450-setup</code></td></tr>
+<tr><td><b>Blank labels?</b></td><td>The printer may speak the other language: <code>sudo zp450-setup --zpl</code></td></tr>
+<tr><td><b>Remove it</b></td><td><code>sudo zp450-uninstall</code></td></tr>
+</table>
+<p>Documentation is in <code>/usr/local/zp450/share/doc/zp450</code>.</p>
+</body></html>

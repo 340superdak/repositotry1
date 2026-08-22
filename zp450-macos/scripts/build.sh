@@ -182,7 +182,7 @@ resign_local() {
   info "Re-signing installed binaries for local use"
 
   local ents
-  ents="$(mktemp -t zp450-entitlements)"
+  ents="$(mktemp "${TMPDIR:-/tmp}/zp450-ents.XXXXXX")"
   cat >"$ents" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -360,4 +360,8 @@ main() {
   fi
 }
 
-main "$@"
+# Only run when executed; package/build-pkg.sh sources this file to reuse
+# fetch_and_verify, force_native_arch and the environment checks.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi
