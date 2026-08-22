@@ -1,1 +1,4 @@
 node_modules/
+
+# Built installer packages (several MB; rebuild with package/build-pkg.sh)
+zp450-macos/package/out/
