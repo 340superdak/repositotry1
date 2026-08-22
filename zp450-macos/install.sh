@@ -25,6 +25,9 @@
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Kept for the Rosetta re-exec below, before the parser consumes them.
+ZP450_ORIGINAL_ARGS=("$@")
+
 SKIP_BUILD=0
 export SKIP_CUPS_QUEUE=0
 export ASSUME_YES=0
@@ -54,12 +57,39 @@ done
 # shellcheck source=scripts/common.sh
 source "$HERE/scripts/common.sh"
 
+# Building x86_64 against arm64 libraries makes the linker ignore the
+# mismatched files and report their symbols as undefined - it looks like an
+# OpenSSL API problem, not an architecture one. Re-run ourselves natively
+# rather than making that the user's problem.
+reexec_native() {
+  local shell_arch native
+  shell_arch="$(uname -m)"
+  native="$(native_arch)"
+
+  [ "$shell_arch" = "$native" ] && return 0
+
+  if [ "${ZP450_REEXEC:-0}" = "1" ]; then
+    die "Re-exec under arch -$native did not take effect (still $shell_arch)."
+  fi
+
+  if ! command -v arch >/dev/null 2>&1; then
+    die "This shell is $shell_arch on an $native Mac and 'arch' is unavailable to fix it."
+  fi
+
+  warn "This shell is $shell_arch on an $native Mac (Rosetta)."
+  info "Re-running natively: arch -$native"
+  export ZP450_REEXEC=1
+  exec arch -"$native" /bin/bash "$0" ${ZP450_ORIGINAL_ARGS[@]+"${ZP450_ORIGINAL_ARGS[@]}"}
+}
+
 preflight() {
   info "Checking this Mac"
 
   if [ "$(uname -s)" != "Darwin" ]; then
     die "This installer only runs on macOS."
   fi
+
+  reexec_native
 
   local os_version os_major
   os_version="$(sw_vers -productVersion)"

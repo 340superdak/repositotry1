@@ -57,33 +57,27 @@ install_dependencies() {
 # missing - "ld: symbol(s) not found for architecture x86_64" - which looks
 # nothing like the actual problem.
 check_architecture() {
-  local shell_arch native_arch brew_prefix
+  local shell_arch native brew_prefix
   shell_arch="$(uname -m)"
+  native="$(native_arch)"
 
-  if [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = "1" ]; then
-    native_arch="arm64"
-  else
-    native_arch="x86_64"
-  fi
-
-  if [ "$shell_arch" != "$native_arch" ]; then
-    error "This shell reports $shell_arch on an $native_arch Mac - you are running under Rosetta."
-    error "Building here produces $shell_arch binaries that cannot link against $native_arch libraries."
-    error "Start a native shell and re-run:"
-    error "    arch -$native_arch zsh"
-    error "    rm -rf $BUILD_DIR && ./install.sh"
+  if [ "$shell_arch" != "$native" ]; then
+    error "Building as $shell_arch on an $native Mac cannot link against $native libraries."
+    error "install.sh re-runs itself under 'arch -$native' to avoid this; running"
+    error "build.sh directly skips that. Either use ./install.sh, or start a"
+    error "native shell with: arch -$native zsh"
     die "Refusing to build cross-architecture."
   fi
 
   brew_prefix="$(brew --prefix)"
-  if [ "$native_arch" = "arm64" ] && [ "$brew_prefix" = "/usr/local" ]; then
+  if [ "$native" = "arm64" ] && [ "$brew_prefix" = "/usr/local" ]; then
     error "Homebrew at /usr/local is the Intel build; on Apple Silicon it supplies x86_64 libraries."
     error "Install the native Homebrew (it lives at /opt/homebrew) and re-run, or"
     error "point PATH at an arm64 brew before running install.sh."
     die "Refusing to build against a mismatched Homebrew."
   fi
 
-  ok "architecture: $native_arch, Homebrew at $brew_prefix"
+  ok "architecture: $native, Homebrew at $brew_prefix"
 }
 
 setup_build_env() {
@@ -174,7 +168,15 @@ main() {
   install_dependencies
   setup_build_env
 
+  local stamp="$BUILD_DIR/.build-arch"
+  if [ -f "$stamp" ] && [ "$(cat "$stamp")" != "$(uname -m)" ]; then
+    warn "Build tree holds $(cat "$stamp") objects but this is $(uname -m) - removing it."
+    warn "(Stale objects would relink and fail the same way.)"
+    rm -rf "$BUILD_DIR"
+  fi
+
   mkdir -p "$BUILD_DIR"
+  uname -m >"$stamp"
   cd "$BUILD_DIR" || die "cannot enter $BUILD_DIR"
 
   build_pappl

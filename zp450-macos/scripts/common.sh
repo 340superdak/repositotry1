@@ -50,6 +50,16 @@ error() { printf '%serror:%s %s\n' "$_c_red" "$_c_reset" "$*" >&2; }
 ok()    { printf '%s  ok%s %s\n' "$_c_green" "$_c_reset" "$*"; }
 die()   { error "$@"; exit 1; }
 
+# native_arch  - the architecture this Mac actually is, regardless of the shell.
+# A Rosetta shell reports x86_64 from uname, but hw.optional.arm64 does not lie.
+native_arch() {
+  if [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = "1" ]; then
+    echo "arm64"
+  else
+    echo "x86_64"
+  fi
+}
+
 # run_root CMD...  - run a command as root, using sudo only when needed.
 run_root() {
   if [ "$(id -u)" -eq 0 ]; then

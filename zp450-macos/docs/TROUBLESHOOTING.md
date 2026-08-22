@@ -137,17 +137,30 @@ as an undefined symbol, which reads like an API problem but is not. Check with:
 uname -m; arch; brew --prefix
 ```
 
-`arm64` and `/opt/homebrew` are correct. `x86_64` means a Rosetta shell — start
-a native one with `arch -arm64 zsh`. A `brew --prefix` of `/usr/local` on Apple
-Silicon means Intel Homebrew, whose libraries are x86_64; install the native
-Homebrew at `/opt/homebrew`. Either way, delete the half-built tree before
-retrying, or stale objects of the wrong architecture linger:
+`arm64` and `/opt/homebrew` are correct.
 
-```sh
-rm -rf /tmp/zp450-build && ./install.sh
+`install.sh` handles the Rosetta case itself: if the shell is x86_64 on an
+arm64 Mac it re-runs under `arch -arm64` and says so, and it deletes a build
+tree left over from a cross-architecture attempt (stale objects would relink
+and fail identically). Running `scripts/build.sh` directly skips the re-exec
+and stops with an error instead.
+
+The one case that cannot be automated is Intel Homebrew: a `brew --prefix` of
+`/usr/local` on Apple Silicon means every library it provides is x86_64.
+Install the native Homebrew at `/opt/homebrew` and make sure it comes first in
+`PATH`; the two coexist.
+
+A concrete symptom of the mismatch, taken from a real failure — OpenSSL symbols
+undefined even though `configure` found OpenSSL:
+
+```
+Undefined symbols for architecture x86_64:
+  "_ASN1_INTEGER_free", referenced from:
+      __papplSystemWebTLSNew in system-webif.o
 ```
 
-`install.sh` now refuses to start when it detects either mismatch.
+`configure` locating a library and `ld` being able to use it are different
+questions; the second one is where architecture bites.
 
 To capture it, re-run just the failed link — the object files are already
 built, so this takes seconds:
