@@ -21,7 +21,12 @@ LPRINT_URL="https://github.com/michaelrsweet/lprint/releases/download/v${LPRINT_
 PAPPL_SHA256="${PAPPL_SHA256:-50fec863a28a3c39af639de29d58bf8cefdafa258b66e3c0dfbe2097801dc9db}"
 LPRINT_SHA256="${LPRINT_SHA256:-f0a7f8d84b529db000e2ba23fdd30980d0ef50c26b8ef780b36bfdf18cd67ba5}"
 
-BREW_PACKAGES=(pkg-config libusb libpng jpeg-turbo openssl@3)
+# CUPS: macOS ships 2.3.x, but LPrint requires 2.4 or later. Homebrew's cups is
+# keg-only, so it does not shadow the system one; we point pkg-config at it and
+# build BOTH PAPPL and LPrint against it. PAPPL accepts 2.2+ and would happily
+# use Apple's, but then the printer application would hold two different libcups
+# in one process.
+BREW_PACKAGES=(pkg-config libusb libpng jpeg-turbo openssl@3 cups)
 
 install_dependencies() {
   info "Checking build dependencies"
@@ -86,13 +91,37 @@ setup_build_env() {
 
   # PAPPL needs OpenSSL for TLS and libusb for USB devices; Homebrew keeps
   # openssl@3 keg-only, so its .pc files have to be added explicitly.
-  export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${brew_prefix}/lib/pkgconfig:${brew_prefix}/opt/openssl@3/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+  export PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig:${brew_prefix}/opt/cups/lib/pkgconfig:${brew_prefix}/lib/pkgconfig:${brew_prefix}/opt/openssl@3/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
   export CPPFLAGS="-I${brew_prefix}/include ${CPPFLAGS:-}"
   export LDFLAGS="-L${brew_prefix}/lib ${LDFLAGS:-}"
 
   # Build for whatever architecture this Mac actually is; a universal binary
   # would only matter for redistribution, which this install does not do.
   info "Building for $(uname -m) against Homebrew at ${brew_prefix}"
+}
+
+# check_cups  - LPrint requires CUPS 2.4+; macOS ships 2.3.x. Verify before
+# building anything, so the failure does not land after PAPPL is installed.
+check_cups() {
+  local ver major minor rest
+
+  if ! ver="$(pkg-config --modversion cups 2>/dev/null)" || [ -z "$ver" ]; then
+    error "pkg-config cannot find a CUPS development package."
+    error "macOS's own CUPS is 2.3.x and has no .pc file; LPrint needs 2.4+."
+    die "Install Homebrew's CUPS with: brew install cups"
+  fi
+
+  major="${ver%%.*}"
+  rest="${ver#*.}"
+  minor="${rest%%.*}"
+
+  if [ "$major" -lt 2 ] || { [ "$major" -eq 2 ] && [ "$minor" -lt 4 ]; }; then
+    error "pkg-config reports CUPS $ver, but LPrint requires 2.4 or later."
+    error "macOS ships 2.3.x; Homebrew's keg-only cups provides a newer one."
+    die "Install it with: brew install cups"
+  fi
+
+  ok "CUPS $ver (via pkg-config)"
 }
 
 # force_native_arch  - run in a configured source tree, before make.
@@ -197,6 +226,7 @@ main() {
   check_architecture
   install_dependencies
   setup_build_env
+  check_cups
 
   local stamp="$BUILD_DIR/.build-arch"
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" != "$(uname -m)" ]; then

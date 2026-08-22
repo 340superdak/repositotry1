@@ -40,6 +40,7 @@ Everywhere printer, exactly as it would see an AirPrint device on the network.
 
 | Component | Version | Location |
 |---|---|---|
+| Homebrew `cups` (keg-only, 2.4+) | current | `$(brew --prefix)/opt/cups` |
 | [PAPPL](https://www.msweet.org/pappl) — printer application framework | 1.4.9 | `/usr/local/lib`, `/usr/local/include` |
 | [LPrint](https://www.msweet.org/lprint) — label printer application | 1.4.0 | `/usr/local/bin/lprint` |
 | ZP 450 driver entries | this repo | patch applied at build time |
@@ -55,6 +56,7 @@ are used.
 - macOS 26 (works on earlier versions too — nothing here is 26-specific)
 - Xcode command line tools (`xcode-select --install`)
 - [Homebrew](https://brew.sh), for `libusb`, `libpng`, `jpeg-turbo`, `openssl@3`
+  and `cups` (macOS ships CUPS 2.3.x; LPrint requires 2.4+)
 - Admin rights (the daemon runs as root so it can claim the USB interface)
 
 ## Install

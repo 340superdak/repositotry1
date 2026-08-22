@@ -194,6 +194,20 @@ cd /tmp/zp450-build/pappl-1.4.9 && make 2>&1 | tail -30
 A full `./install.sh` also tees configure and make output to
 `/tmp/zp450-build/pappl-{configure,build}.log`.
 
+**`configure: error: CUPS 2.4 or later is required for LPrint.`** macOS ships
+CUPS 2.3.x, and LPrint has required 2.4+ since at least 1.3.1, so no older
+LPrint avoids this. Homebrew's `cups` provides 2.4+ and is keg-only, meaning it
+sits in `$(brew --prefix)/opt/cups` and does not shadow the system CUPS:
+
+```sh
+brew install cups
+```
+
+`build.sh` installs it, puts its `pkgconfig` directory first on
+`PKG_CONFIG_PATH`, and checks the version before building anything. Both PAPPL
+and LPrint are built against it deliberately — PAPPL accepts 2.2+ and would
+otherwise link Apple's, leaving two different libcups in one process.
+
 - `configure: error: ...pkg-config...` — run `brew install pkg-config`.
 - OpenSSL not found — `brew install openssl@3`; the build script adds its
   keg-only `pkgconfig` directory to `PKG_CONFIG_PATH` automatically.
