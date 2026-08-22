@@ -19,6 +19,8 @@ case "${1:-}" in
 esac
 
 if [ "$MODE" = "direct" ]; then
+  [ -x "$LPRINT" ] || die "LPrint is not installed at $LPRINT - run ./install.sh first."
+
   # LPrint recognizes a file whose first 17 bytes are "T*E*S*T*P*A*G*E*\0"
   # as a request for its built-in self test page, rendered to the loaded media.
   TESTFILE="$(mktemp -t lprint-testpage)"

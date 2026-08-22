@@ -97,10 +97,15 @@ build_pappl() {
   tar xzf "$PAPPL_TARBALL"
   (
     cd "pappl-${PAPPL_VERSION}" || exit 1
-    ./configure --prefix="$PREFIX" --with-tls=openssl --enable-libusb --disable-static
-    make -j"$(sysctl -n hw.ncpu)"
+    # Tee to a log: a link failure scrolls past fast, and the lines above the
+    # final "clang: error" are the ones that name the cause.
+    ./configure --prefix="$PREFIX" --with-tls=openssl --enable-libusb --disable-static 2>&1 | tee "$BUILD_DIR/pappl-configure.log"
+    make -j"$(sysctl -n hw.ncpu)" 2>&1 | tee "$BUILD_DIR/pappl-build.log"
     run_root make install
   )
+  if [ ! -f "${PREFIX}/lib/libpappl.1.dylib" ] && [ ! -f "${PREFIX}/lib/libpappl.dylib" ]; then
+    die "PAPPL did not install a library into ${PREFIX}/lib - see $BUILD_DIR/pappl-build.log"
+  fi
   ok "PAPPL installed to $PREFIX"
 }
 
@@ -121,10 +126,11 @@ build_lprint() {
       warn "The generic driver ${DRIVER_FALLBACK} will be used instead."
     fi
 
-    ./configure --prefix="$PREFIX"
-    make -j"$(sysctl -n hw.ncpu)"
+    ./configure --prefix="$PREFIX" 2>&1 | tee "$BUILD_DIR/lprint-configure.log"
+    make -j"$(sysctl -n hw.ncpu)" 2>&1 | tee "$BUILD_DIR/lprint-build.log"
     run_root make install
   )
+  [ -x "$LPRINT" ] || die "LPrint did not install to $LPRINT - see $BUILD_DIR/lprint-build.log"
   ok "LPrint installed to $PREFIX"
 }
 
@@ -139,6 +145,7 @@ main() {
   build_lprint
 
   info "Verifying the ZP 450 drivers are present"
+  [ -x "$LPRINT" ] || die "$LPRINT is missing - the build did not complete"
   if "$LPRINT" drivers | grep -q '^epl2_4inch-203dpi-dt_zp450 '; then
     ok "epl2_4inch-203dpi-dt_zp450"
   else
