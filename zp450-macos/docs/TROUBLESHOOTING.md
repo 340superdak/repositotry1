@@ -113,6 +113,36 @@ sudo lpadmin -x ZP450
 sudo lpadmin -p ZP450 -E -v ipp://localhost:8100/ipp/print/zp450 -m everywhere
 ```
 
+## `Library not loaded: /usr/local/lib/libpappl.1.dylib`
+
+With a reason mentioning Team IDs:
+
+```
+Reason: ... code signature in '/usr/local/lib/libpappl.1.dylib' not valid for
+use in process: mapping process and mapped file (non-platform) have different
+Team IDs
+```
+
+PAPPL and LPrint both codesign with `-o runtime` (hardened runtime) using the
+ad-hoc identity `-`. Hardened runtime enables library validation, which requires
+every loaded dylib to carry the same Team ID as the process — and two
+separately ad-hoc-signed artifacts each have no Team ID, which counts as a
+mismatch. The binary is fine; macOS just refuses to let it load its own library.
+
+`build.sh` re-signs both after installing, but if you have a broken install
+already, fixing it takes seconds and needs no rebuild:
+
+```sh
+sudo codesign --force --sign - --timestamp=none /usr/local/lib/libpappl.1.dylib
+sudo codesign --force --sign - --timestamp=none /usr/local/bin/lprint
+lprint drivers | head -3            # should list drivers, not a dyld error
+./install.sh --skip-build           # restart the daemon and create the queues
+```
+
+A watch-out: a *missing* driver warning ("ZP 450 EPL driver not registered")
+can be this problem in disguise. If `lprint` cannot run at all, every driver
+looks absent.
+
 ## The build fails
 
 **Linker error building `libpappl.1.dylib`.** Seen on macOS 26 (Mac Studio):

@@ -164,6 +164,45 @@ force_native_arch() {
   ok "building for $arch only (universal build flags removed)"
 }
 
+# resign_local  - PAPPL and LPrint both codesign with "-o runtime" (hardened
+# runtime) using the ad-hoc identity "-". Hardened runtime enables library
+# validation, which requires every loaded dylib to carry the same Team ID as
+# the process. Two separately ad-hoc-signed artifacts each have no Team ID, and
+# macOS treats that as a mismatch:
+#
+#   Library not loaded: /usr/local/lib/libpappl.1.dylib
+#   Reason: ... mapping process and mapped file (non-platform) have different
+#   Team IDs
+#
+# Re-signing ad-hoc without hardened runtime drops library validation. This is
+# fine for locally built software; a redistributable build would instead sign
+# everything with one Developer ID.
+resign_local() {
+  local f
+  info "Re-signing installed binaries for local use"
+
+  for f in "${PREFIX}"/lib/libpappl*.dylib "$LPRINT"; do
+    [ -e "$f" ] || continue
+    if ! run_root codesign --force --sign - --timestamp=none "$f" >/dev/null 2>&1; then
+      die "codesign failed for $f"
+    fi
+    ok "signed $(basename "$f")"
+  done
+}
+
+# smoke_test  - the previous run installed binaries that could not load their
+# own library, and the driver check reported it as a missing driver. Actually
+# run the thing before declaring the build good.
+smoke_test() {
+  info "Checking that lprint runs"
+  if ! "$LPRINT" drivers >/dev/null 2>&1; then
+    error "$LPRINT installed but cannot run. Full error:"
+    "$LPRINT" drivers 2>&1 | head -10 >&2
+    die "LPrint cannot load its libraries."
+  fi
+  ok "lprint runs and loads libpappl"
+}
+
 # verify_binary_arch FILE  - a universal or foreign binary here means a flag
 # was missed; catch it at the source rather than at link time in the next
 # project, or at runtime.
@@ -269,6 +308,8 @@ main() {
 
   build_pappl
   build_lprint
+  resign_local
+  smoke_test
 
   info "Verifying the ZP 450 drivers are present"
   [ -x "$LPRINT" ] || die "$LPRINT is missing - the build did not complete"
