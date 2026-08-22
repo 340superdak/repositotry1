@@ -128,10 +128,32 @@ fixes differ completely:
 | `building for macOS-arm64 but attempting to link ... x86_64` | Homebrew architecture mismatch |
 | `symbol(s) not found for architecture x86_64` **on an Apple Silicon Mac** | same mismatch, seen from the other side — see below |
 
-**Cross-architecture builds.** On Apple Silicon (every Mac Studio, and all Macs
-since 2020), `for architecture x86_64` means the toolchain targeted Intel. The
-linker ignores the arm64 libraries it finds and then reports everything in them
-as an undefined symbol, which reads like an API problem but is not. Check with:
+**Universal builds against single-architecture libraries.** This is the common
+cause, and it has nothing to do with your setup. PAPPL and LPrint both add
+`-arch x86_64 -arch arm64` on macOS 11+ to produce universal binaries:
+
+```
+OPTIM="$OPTIM -mmacosx-version-min=11.0 -arch x86_64 -arch arm64"
+```
+
+Homebrew ships single-architecture libraries. On Apple Silicon its `openssl@3`,
+`libpng`, `jpeg-turbo` and `libusb` are arm64-only, so the x86_64 slice has
+nothing to link against:
+
+```
+ld: warning: ignoring file '/opt/homebrew/.../libcrypto.dylib':
+    found architecture 'arm64', required architecture 'x86_64'
+Undefined symbols for architecture x86_64:
+  "_ASN1_INTEGER_free", referenced from: __papplSystemWebTLSNew in system-webif.o
+```
+
+The undefined symbols are for a slice nobody wanted. `build.sh` rewrites
+`Makedefs` after `configure` to build for the native architecture only, which
+is why the `ld: warning: ignoring file` lines are the ones to look for — they
+name the real problem, while the undefined symbols are downstream noise.
+
+**Cross-architecture shells.** A rarer cause with the same error text: a
+Rosetta shell targeting Intel on an arm64 Mac. Check with:
 
 ```sh
 uname -m; arch; brew --prefix

@@ -95,6 +95,34 @@ setup_build_env() {
   info "Building for $(uname -m) against Homebrew at ${brew_prefix}"
 }
 
+# force_native_arch  - run in a configured source tree, before make.
+#
+# PAPPL and LPrint both add "-arch x86_64 -arch arm64" on macOS 11+ to produce
+# universal binaries. Homebrew ships single-architecture libraries, so the
+# foreign slice has nothing to link against and the build dies with
+# "ignoring file ... found architecture 'arm64', required architecture
+# 'x86_64'" followed by undefined symbols for a slice nobody wanted.
+# PAPPL skips its flags when -arch is already set; LPrint appends regardless.
+# Rewriting Makedefs after configure handles both the same way.
+force_native_arch() {
+  local arch other
+  arch="$(native_arch)"
+  if [ "$arch" = "arm64" ]; then other="x86_64"; else other="arm64"; fi
+
+  [ -f Makedefs ] || return 0
+
+  sed -i '' \
+    -e "s/-arch $other -arch $arch/-arch $arch/g" \
+    -e "s/-arch $arch -arch $other/-arch $arch/g" \
+    -e "s/-arch $other/-arch $arch/g" \
+    Makedefs
+
+  if grep -q -- "-arch $other" Makedefs; then
+    die "Could not remove -arch $other from Makedefs; the build would fail to link."
+  fi
+  ok "building for $arch only (universal build flags removed)"
+}
+
 # fetch_and_verify URL TARBALL SHA256
 fetch_and_verify() {
   local url="$1" tarball="$2" sha="$3"
@@ -129,6 +157,7 @@ build_pappl() {
     # Tee to a log: a link failure scrolls past fast, and the lines above the
     # final "clang: error" are the ones that name the cause.
     ./configure --prefix="$PREFIX" --with-tls=openssl --enable-libusb --disable-static 2>&1 | tee "$BUILD_DIR/pappl-configure.log"
+    force_native_arch
     make -j"$(sysctl -n hw.ncpu)" 2>&1 | tee "$BUILD_DIR/pappl-build.log"
     run_root make install
   )
@@ -156,6 +185,7 @@ build_lprint() {
     fi
 
     ./configure --prefix="$PREFIX" 2>&1 | tee "$BUILD_DIR/lprint-configure.log"
+    force_native_arch
     make -j"$(sysctl -n hw.ncpu)" 2>&1 | tee "$BUILD_DIR/lprint-build.log"
     run_root make install
   )

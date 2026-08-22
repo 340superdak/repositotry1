@@ -196,12 +196,13 @@ Verified, by building on Linux and printing to a simulated printer:
 
 Known broken:
 
-- **One macOS 26 Mac Studio failed to build**, and the cause turned out to be a
-  cross-architecture build rather than anything in PAPPL: an x86_64 toolchain
-  linking arm64 OpenSSL, which surfaces as undefined `ASN1_*` symbols "for
-  architecture x86_64". `install.sh` now re-runs itself under `arch -arm64`
-  and clears a stale build tree automatically. The fixed path has not yet been
-  confirmed end to end on that machine.
+- **Universal build flags break the build on Apple Silicon.** PAPPL and LPrint
+  both request `-arch x86_64 -arch arm64` on macOS 11+, and Homebrew's
+  libraries are arm64-only, so the x86_64 slice fails to link — reported as
+  undefined `ASN1_*` symbols "for architecture x86_64", which looks like an
+  OpenSSL problem and is not. `build.sh` rewrites `Makedefs` after `configure`
+  to build native-only. Found on a macOS 26 Mac Studio; the fix has not yet
+  been confirmed end to end there.
 - The macOS-specific runtime parts (LaunchDaemon, USB claim via libusb, the
   `lpadmin -m everywhere` queue) have therefore never been executed.
 - The daemon runs as root. That is what upstream's own macOS package does, and
