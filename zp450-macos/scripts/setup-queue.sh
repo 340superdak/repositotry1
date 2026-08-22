@@ -43,7 +43,20 @@ wait_for_server() {
     fi
     sleep 1
   done
-  die "Printer application did not start. Check $LOG_FILE"
+
+  error "Printer application did not start on port ${LPRINT_PORT}."
+
+  if [ -s "$LOG_FILE" ]; then
+    error "Last lines of $LOG_FILE:"
+    run_root tail -20 "$LOG_FILE" | sed 's/^/    /' >&2
+  else
+    error "$LOG_FILE is empty - the server exited before it could log anything,"
+    error "which usually means it could not start at all rather than failed later."
+  fi
+
+  error "To see the failure directly, run the same command the daemon runs:"
+  error "    sudo ${PREFIX}/bin/lprint server -o server-port=${LPRINT_PORT} -o log-level=debug"
+  die "Printer application did not start."
 }
 
 # Echo the device URI of the attached Zebra printer, if there is exactly one.
