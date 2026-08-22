@@ -12,8 +12,10 @@
 
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
+# Deliberately not named HERE: this script sources scripts/build.sh, which
+# defines its own HERE and would silently overwrite ours.
+PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$PKG_DIR/.." && pwd)"
 
 # Installs into its own prefix so the package can never collide with a
 # from-source install under /usr/local.
@@ -21,7 +23,7 @@ export PREFIX="/usr/local/zp450"
 PKG_VERSION="1.0.0"
 PKG_IDENTIFIER="org.zp450.printer"
 STAGE="/tmp/zp450-pkg/stage"
-OUT="$HERE/out"
+OUT="$PKG_DIR/out"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -35,7 +37,11 @@ done
 # Reuse the source build's helpers: architecture and CUPS checks, tarball
 # fetching with checksums, and the universal-flag rewrite.
 # shellcheck source=../scripts/build.sh
-source "$REPO/scripts/build.sh"
+source "$REPO_DIR/scripts/build.sh"
+
+# Sourcing another script can clobber variables; make sure ours survived.
+[ -f "$PKG_DIR/bundle-dylibs.sh" ] || \
+  die "PKG_DIR is wrong after sourcing build.sh: $PKG_DIR"
 
 STAGED_ROOT="$STAGE$PREFIX"
 
@@ -73,11 +79,11 @@ stage_runtime_files() {
 
   local f
   for f in common.sh setup-queue.sh test-print.sh device-id.sh; do
-    install -m 755 "$REPO/scripts/$f" "$STAGED_ROOT/share/zp450/scripts/$f"
+    install -m 755 "$REPO_DIR/scripts/$f" "$STAGED_ROOT/share/zp450/scripts/$f"
   done
-  install -m 644 "$REPO/launchd/org.zp450.lprint.plist.in" "$STAGED_ROOT/share/zp450/launchd/"
-  install -m 644 "$REPO/README.md" "$STAGED_ROOT/share/doc/zp450/"
-  install -m 644 "$REPO/docs/TROUBLESHOOTING.md" "$STAGED_ROOT/share/doc/zp450/"
+  install -m 644 "$REPO_DIR/launchd/org.zp450.lprint.plist.in" "$STAGED_ROOT/share/zp450/launchd/"
+  install -m 644 "$REPO_DIR/README.md" "$STAGED_ROOT/share/doc/zp450/"
+  install -m 644 "$REPO_DIR/docs/TROUBLESHOOTING.md" "$STAGED_ROOT/share/doc/zp450/"
 
   # Two commands users can run after installing, so they never need the repo.
   cat > "$STAGED_ROOT/bin/zp450-setup" <<'WRAP'
@@ -141,7 +147,7 @@ build_package() {
 
   pkgbuild \
     --root "$STAGE" \
-    --scripts "$HERE/scripts" \
+    --scripts "$PKG_DIR/scripts" \
     --identifier "$PKG_IDENTIFIER" \
     --version "$PKG_VERSION" \
     --install-location "/" \
@@ -149,8 +155,8 @@ build_package() {
     "$OUT/zp450-component.pkg" >/dev/null
 
   productbuild \
-    --distribution "$HERE/distribution.xml" \
-    --resources "$HERE/resources" \
+    --distribution "$PKG_DIR/distribution.xml" \
+    --resources "$PKG_DIR/resources" \
     --package-path "$OUT" \
     "$OUT/ZP450-Installer-$PKG_VERSION.pkg" >/dev/null
 
@@ -180,7 +186,7 @@ main_pkg() {
   stage_build lprint "lprint-${LPRINT_VERSION}.tar.gz" "$LPRINT_URL" "$LPRINT_SHA256"
 
   stage_runtime_files
-  bash "$HERE/bundle-dylibs.sh" "$STAGED_ROOT"
+  bash "$PKG_DIR/bundle-dylibs.sh" "$STAGED_ROOT"
   smoke_test_staged
   build_package
 
