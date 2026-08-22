@@ -134,6 +134,9 @@ main() {
   if [ "$SKIP_BUILD" = "1" ]; then
     info "Skipping build (--skip-build)"
     [ -x "$LPRINT" ] || die "$LPRINT is not installed - run without --skip-build"
+    # Still repair signatures and confirm the binary runs: a build that
+    # installed unusable binaries must not survive a --skip-build re-run.
+    bash "$HERE/scripts/build.sh" --resign-only
   else
     bash "$HERE/scripts/build.sh"
   fi

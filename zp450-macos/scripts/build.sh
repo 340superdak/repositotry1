@@ -181,13 +181,42 @@ resign_local() {
   local f
   info "Re-signing installed binaries for local use"
 
-  for f in "${PREFIX}"/lib/libpappl*.dylib "$LPRINT"; do
+  local ents
+  ents="$(mktemp -t zp450-entitlements)"
+  cat >"$ents" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>
+PLIST
+
+  # Libraries first: re-signing them after the executable would not invalidate
+  # anything here, but keeping the order stable makes failures easier to read.
+  for f in "${PREFIX}"/lib/libpappl*.dylib; do
     [ -e "$f" ] || continue
     if ! run_root codesign --force --sign - --timestamp=none "$f" >/dev/null 2>&1; then
       die "codesign failed for $f"
     fi
     ok "signed $(basename "$f")"
   done
+
+  # The executable also gets the entitlement, so library validation stays off
+  # even if a future toolchain re-applies hardened runtime.
+  if ! run_root codesign --force --sign - --timestamp=none --entitlements "$ents" "$LPRINT" >/dev/null 2>&1; then
+    rm -f "$ents"
+    die "codesign failed for $LPRINT"
+  fi
+  rm -f "$ents"
+  ok "signed $(basename "$LPRINT")"
+
+  if codesign -d --verbose=2 "$LPRINT" 2>&1 | grep -q 'flags=.*runtime'; then
+    warn "hardened runtime still set on $LPRINT; relying on the"
+    warn "disable-library-validation entitlement instead."
+  fi
 }
 
 # smoke_test  - the previous run installed binaries that could not load their
@@ -290,6 +319,14 @@ build_lprint() {
 }
 
 main() {
+  # install.sh --skip-build reuses installed binaries but still needs the
+  # signature repair, which is why a broken install could survive a re-run.
+  if [ "${1:-}" = "--resign-only" ]; then
+    resign_local
+    smoke_test
+    return 0
+  fi
+
   check_architecture
   install_dependencies
   setup_build_env
