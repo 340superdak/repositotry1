@@ -147,10 +147,19 @@ Undefined symbols for architecture x86_64:
   "_ASN1_INTEGER_free", referenced from: __papplSystemWebTLSNew in system-webif.o
 ```
 
-The undefined symbols are for a slice nobody wanted. `build.sh` rewrites
-`Makedefs` after `configure` to build for the native architecture only, which
-is why the `ld: warning: ignoring file` lines are the ones to look for — they
-name the real problem, while the undefined symbols are downstream noise.
+The undefined symbols are for a slice nobody wanted. `build.sh` rewrites the
+generated build files after `configure` to build for the native architecture
+only — `Makedefs` for PAPPL, `Makefile` for LPrint, which has no `Makedefs` —
+and then checks each installed binary's architecture with `file`. The
+`ld: warning: ignoring file` lines are the ones to look for; the undefined
+symbols below them are downstream noise.
+
+If this reappears for one project but not the other, check which file that
+project actually keeps its flags in:
+
+```sh
+grep -l -- '-arch' /tmp/zp450-build/*/Makedefs /tmp/zp450-build/*/Makefile 2>/dev/null
+```
 
 **Cross-architecture shells.** A rarer cause with the same error text: a
 Rosetta shell targeting Intel on an arm64 Mac. Check with:

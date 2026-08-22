@@ -134,22 +134,48 @@ check_cups() {
 # PAPPL skips its flags when -arch is already set; LPrint appends regardless.
 # Rewriting Makedefs after configure handles both the same way.
 force_native_arch() {
-  local arch other
+  local arch other f found=0
   arch="$(native_arch)"
   if [ "$arch" = "arm64" ]; then other="x86_64"; else other="arm64"; fi
 
-  [ -f Makedefs ] || return 0
+  # PAPPL keeps its flags in Makedefs; LPrint has no Makedefs and keeps them in
+  # Makefile. Rewrite whichever exist, and treat "neither exists" as an error -
+  # silently doing nothing here produces a universal build that fails to link
+  # much later, which is how this was missed the first time.
+  for f in Makedefs Makefile; do
+    [ -f "$f" ] || continue
+    found=1
 
-  sed -i '' \
-    -e "s/-arch $other -arch $arch/-arch $arch/g" \
-    -e "s/-arch $arch -arch $other/-arch $arch/g" \
-    -e "s/-arch $other/-arch $arch/g" \
-    Makedefs
+    sed -i '' \
+      -e "s/-arch $other -arch $arch/-arch $arch/g" \
+      -e "s/-arch $arch -arch $other/-arch $arch/g" \
+      -e "s/-arch $other/-arch $arch/g" \
+      "$f"
 
-  if grep -q -- "-arch $other" Makedefs; then
-    die "Could not remove -arch $other from Makedefs; the build would fail to link."
+    if grep -q -- "-arch $other" "$f"; then
+      die "Could not remove -arch $other from $f; the build would fail to link."
+    fi
+  done
+
+  if [ "$found" != "1" ]; then
+    die "No Makedefs or Makefile in $(pwd) - cannot force a native build."
   fi
+
   ok "building for $arch only (universal build flags removed)"
+}
+
+# verify_binary_arch FILE  - a universal or foreign binary here means a flag
+# was missed; catch it at the source rather than at link time in the next
+# project, or at runtime.
+verify_binary_arch() {
+  local f="$1" arch archs
+  arch="$(native_arch)"
+  archs="$(file -b "$f" 2>/dev/null || true)"
+
+  case "$archs" in
+    *"$arch"*) ok "$(basename "$f"): $arch" ;;
+    *) die "$(basename "$f") is not $arch: $archs" ;;
+  esac
 }
 
 # fetch_and_verify URL TARBALL SHA256
@@ -193,6 +219,7 @@ build_pappl() {
   if [ ! -f "${PREFIX}/lib/libpappl.1.dylib" ] && [ ! -f "${PREFIX}/lib/libpappl.dylib" ]; then
     die "PAPPL did not install a library into ${PREFIX}/lib - see $BUILD_DIR/pappl-build.log"
   fi
+  verify_binary_arch "$(ls "${PREFIX}"/lib/libpappl*.dylib | head -1)"
   ok "PAPPL installed to $PREFIX"
 }
 
@@ -219,6 +246,7 @@ build_lprint() {
     run_root make install
   )
   [ -x "$LPRINT" ] || die "LPrint did not install to $LPRINT - see $BUILD_DIR/lprint-build.log"
+  verify_binary_arch "$LPRINT"
   ok "LPrint installed to $PREFIX"
 }
 
