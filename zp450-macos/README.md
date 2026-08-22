@@ -185,28 +185,38 @@ is *future-proofing* against Apple eventually removing that driver, not a
 present-day breakage. If the bundled driver works for you, using it is the
 reasonable choice.
 
-Verified, by building on Linux and printing to a simulated printer:
+**Confirmed working end to end** on a macOS 26 Mac Studio (Apple Silicon):
+`./install.sh` builds, installs the LaunchDaemon, creates both queues, and
+`scripts/test-print.sh` produces a label. That unit printed with the default
+EPL driver despite reporting ZPL to macOS, so it accepts both.
 
-- The patch applies and compiles against LPrint 1.4.0; all four ZP 450 driver
-  entries register.
-- Auto-detection resolves a real unit's device ID (`MODEL:ZTC ZP 450-200dpi`,
-  captured from hardware) to the ZP 450 EPL or ZPL driver as appropriate,
-  resolves the shorter `ZTC ZP 450` to the `_alt` entries, and does not
-  hijack a GX420d.
-- A test page renders to correct EPL2: `q816` label width, `D7` darkness, 1218
-  raster rows for a 4×6" label at 203dpi, terminated by `P1`.
+Getting there required four macOS-specific fixes, all handled by the scripts
+now. They are worth knowing about, because each one presents as something else:
 
-Known broken:
+1. **Universal build flags.** PAPPL and LPrint request
+   `-arch x86_64 -arch arm64` on macOS 11+, and Homebrew's libraries are
+   arm64-only, so the x86_64 slice cannot link. It surfaces as undefined
+   `ASN1_*` symbols "for architecture x86_64" — an OpenSSL problem to look at,
+   an architecture problem in fact. The real signal is the preceding
+   `ld: warning: ignoring file ... found architecture 'arm64'`. `build.sh`
+   rewrites the generated build files (`Makedefs` for PAPPL, `Makefile` for
+   LPrint, which has none) to build native-only.
+2. **CUPS version.** macOS ships 2.3.x; LPrint requires 2.4+. Homebrew's
+   keg-only `cups` supplies it, and both projects are built against it so only
+   one libcups is in play.
+3. **Code signing.** Both projects sign with hardened runtime and the ad-hoc
+   identity, which enables library validation; `lprint` is then forbidden from
+   loading the `libpappl` it was built against ("different Team IDs"). The
+   installed binaries are re-signed without hardened runtime, plus a
+   `disable-library-validation` entitlement.
+4. **Device ID.** Real units report `ZTC ZP 450-200dpi`, not `ZTC ZP 450`.
 
-- **Universal build flags break the build on Apple Silicon.** PAPPL and LPrint
-  both request `-arch x86_64 -arch arm64` on macOS 11+, and Homebrew's
-  libraries are arm64-only, so the x86_64 slice fails to link — reported as
-  undefined `ASN1_*` symbols "for architecture x86_64", which looks like an
-  OpenSSL problem and is not. `build.sh` rewrites `Makedefs` after `configure`
-  to build native-only. Found on a macOS 26 Mac Studio; the fix has not yet
-  been confirmed end to end there.
-- The macOS-specific runtime parts (LaunchDaemon, USB claim via libusb, the
-  `lpadmin -m everywhere` queue) have therefore never been executed.
+Also verified by building on Linux against a simulated printer: the patch
+compiles, all four ZP 450 entries register, auto-detection resolves both model
+strings without hijacking a GX420d, and a test page renders to correct EPL2
+(`q816` width, `D7` darkness, 1218 raster rows for 4×6" at 203dpi, `P1`).
+
+Still true:
 - The daemon runs as root. That is what upstream's own macOS package does, and
   it is needed for libusb to claim the printer interface.
 - Only one process can own the USB device. A leftover raw CUPS queue pointed at
