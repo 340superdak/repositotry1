@@ -126,6 +126,28 @@ fixes differ completely:
 | `library not found for -lcups` | the SDK no longer supplies what PAPPL expects |
 | `symbol(s) not found` | API mismatch between PAPPL and the installed libs |
 | `building for macOS-arm64 but attempting to link ... x86_64` | Homebrew architecture mismatch |
+| `symbol(s) not found for architecture x86_64` **on an Apple Silicon Mac** | same mismatch, seen from the other side — see below |
+
+**Cross-architecture builds.** On Apple Silicon (every Mac Studio, and all Macs
+since 2020), `for architecture x86_64` means the toolchain targeted Intel. The
+linker ignores the arm64 libraries it finds and then reports everything in them
+as an undefined symbol, which reads like an API problem but is not. Check with:
+
+```sh
+uname -m; arch; brew --prefix
+```
+
+`arm64` and `/opt/homebrew` are correct. `x86_64` means a Rosetta shell — start
+a native one with `arch -arm64 zsh`. A `brew --prefix` of `/usr/local` on Apple
+Silicon means Intel Homebrew, whose libraries are x86_64; install the native
+Homebrew at `/opt/homebrew`. Either way, delete the half-built tree before
+retrying, or stale objects of the wrong architecture linger:
+
+```sh
+rm -rf /tmp/zp450-build && ./install.sh
+```
+
+`install.sh` now refuses to start when it detects either mismatch.
 
 To capture it, re-run just the failed link — the object files are already
 built, so this takes seconds:

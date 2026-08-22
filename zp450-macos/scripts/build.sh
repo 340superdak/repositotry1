@@ -51,6 +51,41 @@ install_dependencies() {
   fi
 }
 
+# Refuse to build cross-architecture. Mixing an x86_64 toolchain (a Rosetta
+# shell, or Intel Homebrew under /usr/local) with arm64 libraries makes the
+# linker ignore the mismatched files and report every symbol in them as
+# missing - "ld: symbol(s) not found for architecture x86_64" - which looks
+# nothing like the actual problem.
+check_architecture() {
+  local shell_arch native_arch brew_prefix
+  shell_arch="$(uname -m)"
+
+  if [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = "1" ]; then
+    native_arch="arm64"
+  else
+    native_arch="x86_64"
+  fi
+
+  if [ "$shell_arch" != "$native_arch" ]; then
+    error "This shell reports $shell_arch on an $native_arch Mac - you are running under Rosetta."
+    error "Building here produces $shell_arch binaries that cannot link against $native_arch libraries."
+    error "Start a native shell and re-run:"
+    error "    arch -$native_arch zsh"
+    error "    rm -rf $BUILD_DIR && ./install.sh"
+    die "Refusing to build cross-architecture."
+  fi
+
+  brew_prefix="$(brew --prefix)"
+  if [ "$native_arch" = "arm64" ] && [ "$brew_prefix" = "/usr/local" ]; then
+    error "Homebrew at /usr/local is the Intel build; on Apple Silicon it supplies x86_64 libraries."
+    error "Install the native Homebrew (it lives at /opt/homebrew) and re-run, or"
+    error "point PATH at an arm64 brew before running install.sh."
+    die "Refusing to build against a mismatched Homebrew."
+  fi
+
+  ok "architecture: $native_arch, Homebrew at $brew_prefix"
+}
+
 setup_build_env() {
   local brew_prefix
   brew_prefix="$(brew --prefix)"
@@ -135,6 +170,7 @@ build_lprint() {
 }
 
 main() {
+  check_architecture
   install_dependencies
   setup_build_env
 
