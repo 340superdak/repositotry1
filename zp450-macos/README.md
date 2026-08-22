@@ -14,9 +14,10 @@ rasterized page into EPL2 or ZPL byte streams — plus a print queue.
 
 Historically that meant a CUPS PPD plus a filter binary. Apple has been
 deprecating that mechanism for several releases; `lpadmin` now warns that
-"printer drivers are deprecated", and while PPD-based drivers still function on
-macOS 26, they are on a path Apple is walking away from, and filter breakage
-across point updates is a real failure mode.
+"printer drivers are deprecated". That said, macOS 26 still ships and uses a
+working Zebra ZPL driver for this printer today — the deprecation is a
+direction of travel, not a current outage. What this buys you is insulation
+from the day that changes.
 
 The supported direction is driverless printing (IPP Everywhere). So instead of
 shipping a filter, this sets up a small local IPP Everywhere print service that
@@ -94,6 +95,12 @@ similar) also accept ZPL, which is worth using — LPrint's ZPL driver reports
 printer status and can read the loaded media configuration back from the
 printer, which the EPL2 driver cannot.
 
+To find out which yours speaks without guessing: if macOS already has a queue
+for the printer, open System Settings ▸ Printers & Scanners and read **Kind**.
+"Zebra ZPL Label Printer" means the unit accepts ZPL, so install with `--zpl`.
+You can also read the command set directly from the device ID with
+`./scripts/device-id.sh`.
+
 If unsure, install with the default. If the printer feeds a blank label instead
 of printing, try the other language:
 
@@ -166,19 +173,35 @@ launchd/                    LaunchDaemon template
 docs/TROUBLESHOOTING.md     when it does not work
 ```
 
-## Caveats
+## Status
 
-- **Not tested against real hardware or a real Mac.** What *has* been verified,
-  by building this on Linux and printing to a simulated printer:
-  the patch applies and compiles against LPrint 1.4.0; both ZP 450 drivers
-  register; auto-detection picks `epl2_4inch-203dpi-dt_zp450` for an EPL ZP 450
-  device ID, `zpl_4inch-203dpi-dt_zp450` for a ZPL one, and falls back to the
-  generic driver for an unrecognized model string; and a test page rendered to
-  correct EPL2 — `q816` label width, `D7` darkness, 1218 raster rows for a 4×6"
-  label at 203dpi, terminated by `P1`. The macOS-specific parts (Homebrew deps,
-  LaunchDaemon, USB detection, the CUPS queue) have not been executed.
-- Expect the device-ID match to be the first thing needing adjustment on real
-  hardware — see `docs/TROUBLESHOOTING.md`.
+**Read this before investing time here.** On macOS 26 as of August 2026, Apple
+still ships a working "Zebra ZPL Label Printer" driver (version 2.3) that
+drives a ZP 450 out of the box — a Mac Studio running 26 prints to one happily
+with no third-party software at all. The argument for this printer application
+is *future-proofing* against Apple eventually removing that driver, not a
+present-day breakage. If the bundled driver works for you, using it is the
+reasonable choice.
+
+Verified, by building on Linux and printing to a simulated printer:
+
+- The patch applies and compiles against LPrint 1.4.0; all four ZP 450 driver
+  entries register.
+- Auto-detection resolves a real unit's device ID (`MODEL:ZTC ZP 450-200dpi`,
+  captured from hardware) to the ZP 450 EPL or ZPL driver as appropriate,
+  resolves the shorter `ZTC ZP 450` to the `_alt` entries, and does not
+  hijack a GX420d.
+- A test page renders to correct EPL2: `q816` label width, `D7` darkness, 1218
+  raster rows for a 4×6" label at 203dpi, terminated by `P1`.
+
+Known broken:
+
+- **The build does not complete on at least one macOS 26 Mac Studio.** PAPPL
+  1.4.9 fails at the link step for `libpappl.1.dylib` with a clang linker
+  error; root cause not yet identified. See "The build fails" in
+  `docs/TROUBLESHOOTING.md` for how to capture the error.
+- The macOS-specific runtime parts (LaunchDaemon, USB claim via libusb, the
+  `lpadmin -m everywhere` queue) have therefore never been executed.
 - The daemon runs as root. That is what upstream's own macOS package does, and
   it is needed for libusb to claim the printer interface.
 - Only one process can own the USB device. A leftover raw CUPS queue pointed at

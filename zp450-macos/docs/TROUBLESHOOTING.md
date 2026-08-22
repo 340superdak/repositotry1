@@ -36,11 +36,16 @@ and every device ID contains them. Without them the ID parses to nothing and no
 driver is reported.
 
 The ZP 450 entries in `patches/0001-add-zebra-zp450-driver-entries.patch` match
-on `COMMAND SET` plus `MODEL:ZTC ZP 450`. Device ID strings vary across firmware
-revisions — some units report `ZTC ZP 450-200dpi` or similar. Matching is
-all-or-nothing per key, so a different `MODEL` string simply falls back to the
-generic `epl2_4inch-203dpi-dt` driver, which prints correctly; only the name in
-the UI is less specific.
+on `COMMAND SET` plus `MODEL`. Two model strings are covered: `ZTC ZP 450-200dpi`
+(observed on real hardware) and `ZTC ZP 450` (the `_alt` entries). Matching is
+all-or-nothing per key, so a unit reporting some third string matches neither.
+
+What that costs you depends on the language. An EPL unit still auto-detects,
+because upstream's generic `epl2_4inch-203dpi-dt` carries `COMMAND SET:EPL;`.
+A ZPL unit auto-detects *nothing* — every generic ZPL entry upstream has an
+empty device ID — so `lprint` cannot guess and you must name the driver with
+`-m`. The install script always passes `-m` explicitly, so setup works either
+way; auto-detection only affects manual `lprint add` runs.
 
 To make the specific entry match your unit, edit the `MODEL:` value in the patch
 to the exact string from `lprint devices -o verbose=1` and rebuild:
@@ -109,6 +114,28 @@ sudo lpadmin -p ZP450 -E -v ipp://localhost:8100/ipp/print/zp450 -m everywhere
 ```
 
 ## The build fails
+
+**Linker error building `libpappl.1.dylib`.** Seen on macOS 26 (Mac Studio):
+`make` dies with `clang: error: linker command failed with exit code 1`. That
+line is only clang's summary — the cause is the `ld:` line above it, and the
+fixes differ completely:
+
+| `ld:` message | Cause |
+|---|---|
+| `library not found for -lssl` | keg-only `openssl@3` not on the link path |
+| `library not found for -lcups` | the SDK no longer supplies what PAPPL expects |
+| `symbol(s) not found` | API mismatch between PAPPL and the installed libs |
+| `building for macOS-arm64 but attempting to link ... x86_64` | Homebrew architecture mismatch |
+
+To capture it, re-run just the failed link — the object files are already
+built, so this takes seconds:
+
+```sh
+cd /tmp/zp450-build/pappl-1.4.9 && make 2>&1 | tail -30
+```
+
+A full `./install.sh` also tees configure and make output to
+`/tmp/zp450-build/pappl-{configure,build}.log`.
 
 - `configure: error: ...pkg-config...` — run `brew install pkg-config`.
 - OpenSSL not found — `brew install openssl@3`; the build script adds its
